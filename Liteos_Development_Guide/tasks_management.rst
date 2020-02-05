@@ -52,11 +52,9 @@ LiteOS系统中的任务都有多种运行状态。系统初始化完成后，�
 
 -   1. 就绪态（Ready）：该任务处于就绪列表中，就绪的任务已经具备执行的能力，只等待调度器进行调度，新创建的任务会被初始化为该状态。
 
--   2. 运行态（Running）：该状态表明任务正在执行，此时它占用处理器，LiteOS调度器选择运行的永远是处于最高优先级的就绪态任务，
-    当任务被运行的一刻，它的任务状态就变成了运行态。
+-   2. 运行态（Running）：该状态表明任务正在执行，此时它占用处理器，LiteOS调度器选择运行的永远是处于最高优先级的就绪态任务，当任务被运行的一刻，它的任务状态就变成了运行态。
 
--   3. 阻塞态（Blocked）：如果任务当前正在等待某个时序或外部中断，那么该任务处于阻塞状态，它不处于就绪列表中，无法得到调度器的调度。
-    阻塞态包含任务被挂起、任务被延时、任务正在等待信号量、读写队列或者等待读写事件等。
+-   3. 阻塞态（Blocked）：如果任务当前正在等待某个时序或外部中断，那么该任务处于阻塞状态，它不处于就绪列表中，无法得到调度器的调度。阻塞态包含任务被挂起、任务被延时、任务正在等待信号量、读写队列或者等待读写事件等。
 
 -   4. 退出态（Dead）：该任务运行结束，等待系统回收资源。
 
@@ -66,7 +64,7 @@ LiteOS系统中的任务都有多种运行状态。系统初始化完成后，�
 LiteOS系统中的每一个任务都有多种运行状态，它们之间的转换关系是怎么样的呢？从运行态任务变成阻塞态，或者从阻塞态变成就绪态，这些任务状
 态是怎么迁移的呢，下面就一起了解任务状态迁移吧，如 任务状态示意图_ 所示。
 
-.. image:: media/tasks_management/tasksm004.png
+.. image:: media/tasks_management/tasksm002.png
     :align: center
     :name: 任务状态示意图
     :alt: 任务状态示意图
@@ -95,7 +93,7 @@ LiteOS系统中的每一个任务都有多种运行状态，它们之间的转�
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 任务创建函数LOS_TaskCreate()
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 在前面的章节中，本书已经讲解了任务创建函数的使用，而未分析LOS_TaskCreate()的源码，那么LiteOS中任务创建函数LOS_TaskCreate()是如何实
 现的呢？如 代码清单:任务管理-1_ 所示。
@@ -105,80 +103,44 @@ LiteOS系统中的每一个任务都有多种运行状态，它们之间的转�
     :name: 代码清单:任务管理-1
     :linenos:
  
+    LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreate(UINT32 *puwTaskID,
+                    TSK_INIT_PARAM_S *pstInitParam){
+        UINT32 uwRet = LOS_OK;
+        UINTPTR uvIntSave;
+        LOS_TASK_CB *pstTaskCB;					(1)
 
-1 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreate(UINT32 \*puwTaskID,
+        uwRet = LOS_TaskCreateOnly(puwTaskID, pstInitParam);		(2)
+        if (LOS_OK != uwRet) {
+            return uwRet;
+        }
+        pstTaskCB = OS_TCB_FROM_TID(*puwTaskID);			(3)
 
-2 TSK_INIT_PARAM_S \*pstInitParam){
+        uvIntSave = LOS_IntLock();
+        pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_SUSPEND);
+        pstTaskCB->usTaskStatus |= OS_TASK_STATUS_READY;		(4)
 
-3 UINT32 uwRet = LOS_OK;
+    #if (LOSCFG_BASE_CORE_CPUP == YES)
+        g_pstCpup[pstTaskCB->uwTaskID].uwID = pstTaskCB->uwTaskID;
+        g_pstCpup[pstTaskCB->uwTaskID].usStatus = pstTaskCB->usTaskStatus;
+    #endif
 
-4 UINTPTR uvIntSave;
+        osPriqueueEnqueue(&pstTaskCB->stPendList, pstTaskCB->usPriority); (5)
+        g_stLosTask.pstNewTask = LOS_DL_LIST_ENTRY(osPriqueueTop(),
+                    LOS_TASK_CB, stPendList);
+        if ((g_bTaskScheduled) && (g_usLosTaskLock == 0)) {
+            if (g_stLosTask.pstRunTask != g_stLosTask.pstNewTask) {		(6)
+                if (LOS_CHECK_SCHEDULE) {
+                    (VOID)LOS_IntRestore(uvIntSave);
+                    osSchedule();						(7)
+                    return LOS_OK;
+                }
+            }
+        }
 
-5 LOS_TASK_CB \*pstTaskCB; **(1)**
+        (VOID)LOS_IntRestore(uvIntSave);
+        return LOS_OK;						(8)
+    }
 
-6
-
-7 uwRet = LOS_TaskCreateOnly(puwTaskID, pstInitParam); **(2)**
-
-8 if (LOS_OK != uwRet) {
-
-9 return uwRet;
-
-10 }
-
-11 pstTaskCB = OS_TCB_FROM_TID(*puwTaskID); **(3)**
-
-12
-
-13 uvIntSave = LOS_IntLock();
-
-14 pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_SUSPEND);
-
-15 pstTaskCB->usTaskStatus \|= OS_TASK_STATUS_READY; **(4)**
-
-16
-
-17 #if (LOSCFG_BASE_CORE_CPUP == YES)
-
-18 g_pstCpup[pstTaskCB->uwTaskID].uwID = pstTaskCB->uwTaskID;
-
-19 g_pstCpup[pstTaskCB->uwTaskID].usStatus = pstTaskCB->usTaskStatus;
-
-20 #endif
-
-21
-
-22 osPriqueueEnqueue(&pstTaskCB->stPendList, pstTaskCB->usPriority); **(5)**
-
-23 g_stLosTask.pstNewTask = LOS_DL_LIST_ENTRY(osPriqueueTop(),
-
-24 LOS_TASK_CB, stPendList);
-
-25 if ((g_bTaskScheduled) && (g_usLosTaskLock == 0)) {
-
-26 if (g_stLosTask.pstRunTask != g_stLosTask.pstNewTask) { **(6)**
-
-27 if (LOS_CHECK_SCHEDULE) {
-
-28 (VOID)LOS_IntRestore(uvIntSave);
-
-29 osSchedule(); **(7)**
-
-30 return LOS_OK;
-
-31 }
-
-32 }
-
-33 }
-
-34
-
-35 (VOID)LOS_IntRestore(uvIntSave);
-
-36 return LOS_OK; **(8)**
-
-37 }
 
 -   代码清单:任务管理-1_ **(1)**\ ：定义一个新创建任务的任务控制块结构体指针，用于保存新创建任务的任务信息。
 
@@ -199,31 +161,25 @@ LiteOS系统中的每一个任务都有多种运行状态，它们之间的转�
 -   代码清单:任务管理-1_  **(7)**\ ：如果满足了\ **(6)** 中的条件，则进行任务的调度，任务的调度是用汇编
     代码实现的，如 代码清单:任务管理-2_ 所示，然后返回任务创建成功。
 
-.. code-block:: c
+.. code-block:: guess
     :caption: 代码清单:任务管理-2 LiteOS任务调度的实现
     :name: 代码清单:任务管理-2
     :linenos:
 
-1 OS_NVIC_INT_CTRL EQU 0xE000ED04
+    OS_NVIC_INT_CTRL             EQU     0xE000ED04
+    OS_NVIC_PENDSVSET           EQU     0x10000000
 
-2 OS_NVIC_PENDSVSET EQU 0x10000000
+    osTaskSchedule
+        LDR     R0, =OS_NVIC_INT_CTRL
+        LDR     R1, =OS_NVIC_PENDSVSET
+        STR     R1, [R0]
+        BX      LR
 
-3
-
-4 osTaskSchedule
-
-5 LDR R0, =OS_NVIC_INT_CTRL
-
-6 LDR R1, =OS_NVIC_PENDSVSET
-
-7 STR R1, [R0]
-
-8 BX LR
 
 在Cortex-M系列处理器中，LiteOS的调度是利用PendSV进行任务调度的，LiteOS向0xE000ED04这个地址写入0x10000000，
 即将SCB寄存器的第28位置1，触发PendSV中断，真正的任务切换是在PendSV中断中进行的，如图 任务调度将PendSV置1_ 所示。
 
-.. image:: media/tasks_management/tasksm004.png
+.. image:: media/tasks_management/tasksm003.png
     :align: center
     :name: 任务调度将PendSV置1
     :alt: 任务调度将PendSV置1
@@ -240,144 +196,76 @@ LiteOS系统中的每一个任务都有多种运行状态，它们之间的转�
     :name: 代码清单:任务管理-3
     :linenos:
 
+    LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskDelete(UINT32 uwTaskID)
+    {
+        UINTPTR uvIntSave;
+        LOS_TASK_CB *pstTaskCB;
+        UINT16 usTempStatus;
+        UINT32 uwErrRet = OS_ERROR;
+
+        CHECK_TASKID(uwTaskID);
+        uvIntSave = LOS_IntLock();
+
+        pstTaskCB = OS_TCB_FROM_TID(uwTaskID);
+
+        usTempStatus = pstTaskCB->usTaskStatus;
+
+        if (OS_TASK_STATUS_UNUSED & usTempStatus) {			(1)
+            uwErrRet = LOS_ERRNO_TSK_NOT_CREATED;
+            OS_GOTO_ERREND();
+        }
+
+        if ((OS_TASK_STATUS_RUNNING & usTempStatus)
+                && (g_usLosTaskLock != 0)) {  (2)
+        PRINT_INFO("In case of task lock,task deletion is not recommended\n");
+            g_usLosTaskLock = 0;
+        }
+
+        if (OS_TASK_STATUS_READY & usTempStatus) {			(3)
+            osPriqueueDequeue(&pstTaskCB->stPendList);
+            pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_READY);
+        } else if ((OS_TASK_STATUS_PEND & usTempStatus)
+                || (OS_TASK_STATUS_PEND_QUEUE & usTempStatus)) {
+                    LOS_ListDelete(&pstTaskCB->stPendList);	(4)
+        }
+        if ((OS_TASK_STATUS_DELAY | OS_TASK_STATUS_TIMEOUT) & usTempStatus) {
+            osTimerListDelete(pstTaskCB);				(5)
+        }
+
+        pstTaskCB->usTaskStatus &= (~(OS_TASK_STATUS_SUSPEND));
+        pstTaskCB->usTaskStatus |= OS_TASK_STATUS_UNUSED;
+        pstTaskCB->uwEvent.uwEventID = 0xFFFFFFFF;
+        pstTaskCB->uwEventMask = 0;
+
+        g_stLosTask.pstNewTask = LOS_DL_LIST_ENTRY(osPriqueueTop(),
+                        LOS_TASK_CB, stPendList); 	(6)
+
+        if (OS_TASK_STATUS_RUNNING & pstTaskCB->usTaskStatus) {	(7)
+            LOS_ListTailInsert(&g_stTskRecyleList, &pstTaskCB->stPendList);
+            g_stLosTask.pstRunTask = &g_pstTaskCBArray[g_uwTskMaxNum];
+            g_stLosTask.pstRunTask->uwTaskID = uwTaskID;
+            g_stLosTask.pstRunTask->usTaskStatus = pstTaskCB->usTaskStatus;
+            g_stLosTask.pstRunTask->uwTopOfStack = pstTaskCB->uwTopOfStack;
+            g_stLosTask.pstRunTask->pcTaskName = pstTaskCB->pcTaskName;
+            pstTaskCB->usTaskStatus = OS_TASK_STATUS_UNUSED;
+            (VOID)LOS_IntRestore(uvIntSave);
+            osSchedule();
+            return LOS_OK;
+        } else {
+            pstTaskCB->usTaskStatus = OS_TASK_STATUS_UNUSED;		(8)
+            LOS_ListAdd(&g_stLosFreeTask, &pstTaskCB->stPendList);	(9)
+            (VOID)LOS_MemFree(m_aucSysMem0, (VOID *)pstTaskCB->uwTopOfStack);(10)
+            pstTaskCB->uwTopOfStack = (UINT32)NULL;			(11)
+        }
+
+        (VOID)LOS_IntRestore(uvIntSave);
+        return LOS_OK;						(12)
+
+    LOS_ERREND:
+        (VOID)LOS_IntRestore(uvIntSave);
+        return uwErrRet;						(13)
+    }
 
-1 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskDelete(UINT32 uwTaskID)
-
-2 {
-
-3 UINTPTR uvIntSave;
-
-4 LOS_TASK_CB \*pstTaskCB;
-
-5 UINT16 usTempStatus;
-
-6 UINT32 uwErrRet = OS_ERROR;
-
-7
-
-8 CHECK_TASKID(uwTaskID);
-
-9 uvIntSave = LOS_IntLock();
-
-10
-
-11 pstTaskCB = OS_TCB_FROM_TID(uwTaskID);
-
-12
-
-13 usTempStatus = pstTaskCB->usTaskStatus;
-
-14
-
-15 if (OS_TASK_STATUS_UNUSED & usTempStatus) { **(1)**
-
-16 uwErrRet = LOS_ERRNO_TSK_NOT_CREATED;
-
-17 OS_GOTO_ERREND();
-
-18 }
-
-19
-
-20 if ((OS_TASK_STATUS_RUNNING & usTempStatus)
-
-21 && (g_usLosTaskLock != 0)) { **(2)**
-
-22 PRINT_INFO("In case of task lock,task deletion is not recommended\n");
-
-23 g_usLosTaskLock = 0;
-
-24 }
-
-25
-
-26 if (OS_TASK_STATUS_READY & usTempStatus) { **(3)**
-
-27 osPriqueueDequeue(&pstTaskCB->stPendList);
-
-28 pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_READY);
-
-29 } else if ((OS_TASK_STATUS_PEND & usTempStatus)
-
-30 \|\| (OS_TASK_STATUS_PEND_QUEUE & usTempStatus)) {
-
-31 LOS_ListDelete(&pstTaskCB->stPendList); **(4)**
-
-32 }
-
-33 if ((OS_TASK_STATUS_DELAY \| OS_TASK_STATUS_TIMEOUT) & usTempStatus) {
-
-34 osTimerListDelete(pstTaskCB); **(5)**
-
-35 }
-
-36
-
-37 pstTaskCB->usTaskStatus &= (~(OS_TASK_STATUS_SUSPEND));
-
-38 pstTaskCB->usTaskStatus \|= OS_TASK_STATUS_UNUSED;
-
-39 pstTaskCB->uwEvent.uwEventID = 0xFFFFFFFF;
-
-40 pstTaskCB->uwEventMask = 0;
-
-41
-
-42 g_stLosTask.pstNewTask = LOS_DL_LIST_ENTRY(osPriqueueTop(),
-
-43 LOS_TASK_CB, stPendList); **(6)**
-
-44
-
-45 if (OS_TASK_STATUS_RUNNING & pstTaskCB->usTaskStatus) { **(7)**
-
-46 LOS_ListTailInsert(&g_stTskRecyleList, &pstTaskCB->stPendList);
-
-47 g_stLosTask.pstRunTask = &g_pstTaskCBArray[g_uwTskMaxNum];
-
-48 g_stLosTask.pstRunTask->uwTaskID = uwTaskID;
-
-49 g_stLosTask.pstRunTask->usTaskStatus = pstTaskCB->usTaskStatus;
-
-50 g_stLosTask.pstRunTask->uwTopOfStack = pstTaskCB->uwTopOfStack;
-
-51 g_stLosTask.pstRunTask->pcTaskName = pstTaskCB->pcTaskName;
-
-52 pstTaskCB->usTaskStatus = OS_TASK_STATUS_UNUSED;
-
-53 (VOID)LOS_IntRestore(uvIntSave);
-
-54 osSchedule();
-
-55 return LOS_OK;
-
-56 } else {
-
-57 pstTaskCB->usTaskStatus = OS_TASK_STATUS_UNUSED; **(8)**
-
-58 LOS_ListAdd(&g_stLosFreeTask, &pstTaskCB->stPendList); **(9)**
-
-59 (VOID)LOS_MemFree(m_aucSysMem0, (VOID \*)pstTaskCB->uwTopOfStack);\ **(10)**
-
-60 pstTaskCB->uwTopOfStack = (UINT32)NULL; **(11)**
-
-61 }
-
-62
-
-63 (VOID)LOS_IntRestore(uvIntSave);
-
-64 return LOS_OK; **(12)**
-
-65
-
-66 LOS_ERREND:
-
-67 (VOID)LOS_IntRestore(uvIntSave);
-
-68 return uwErrRet; **(13)**
-
-69 }
 
 -   代码清单:任务管理-3_ **(1)**\ ：如果要删除的任务的任务状态是OS_TASK_STATUS_UNUSED，表示任务尚未创建，系统无法删除，将返回错误代码LOS_ERRNO_TSK_NOT_CREATED。
 
@@ -420,58 +308,33 @@ LiteOS系统中的每一个任务都有多种运行状态，它们之间的转�
     :name: 代码清单:任务管理-4
     :linenos:
 
+    LITE_OS_SEC_TEXT UINT32 LOS_TaskDelay(UINT32 uwTick)
+    {
+        UINTPTR uvIntSave;
 
-1 LITE_OS_SEC_TEXT UINT32 LOS_TaskDelay(UINT32 uwTick)
+        if (OS_INT_ACTIVE) {					(1)
+            return LOS_ERRNO_TSK_DELAY_IN_INT;
+        }
 
-2 {
+        if (g_usLosTaskLock != 0) {				(2)
+            return LOS_ERRNO_TSK_DELAY_IN_LOCK;
+        }
 
-3 UINTPTR uvIntSave;
+        if (uwTick == 0) {						(3)
+            return LOS_TaskYield();
+        } else {
+        uvIntSave = LOS_IntLock();
+        osPriqueueDequeue(&(g_stLosTask.pstRunTask->stPendList)); (4)
+        g_stLosTask.pstRunTask->usTaskStatus &= (~OS_TASK_STATUS_READY);
+        osTaskAdd2TimerList((LOS_TASK_CB *)g_stLosTask.pstRunTask,uwTick);
+        g_stLosTask.pstRunTask->usTaskStatus |= OS_TASK_STATUS_DELAY;
+        (VOID)LOS_IntRestore(uvIntSave);
+        LOS_Schedule();					(5)
+        }
 
-4
+        return LOS_OK;
+    }
 
-5 if (OS_INT_ACTIVE) { **(1)**
-
-6 return LOS_ERRNO_TSK_DELAY_IN_INT;
-
-7 }
-
-8
-
-9 if (g_usLosTaskLock != 0) { **(2)**
-
-10 return LOS_ERRNO_TSK_DELAY_IN_LOCK;
-
-11 }
-
-12
-
-13 if (uwTick == 0) { **(3)**
-
-14 return LOS_TaskYield();
-
-15 } else {
-
-16 uvIntSave = LOS_IntLock();
-
-17 osPriqueueDequeue(&(g_stLosTask.pstRunTask->stPendList)); **(4)**
-
-18 g_stLosTask.pstRunTask->usTaskStatus &= (~OS_TASK_STATUS_READY);
-
-19 osTaskAdd2TimerList((LOS_TASK_CB \*)g_stLosTask.pstRunTask,uwTick);
-
-20 g_stLosTask.pstRunTask->usTaskStatus \|= OS_TASK_STATUS_DELAY;
-
-21 (VOID)LOS_IntRestore(uvIntSave);
-
-22 LOS_Schedule(); **(5)**
-
-23 }
-
-24
-
-25 return LOS_OK;
-
-26 }
 
 -   代码清单:任务管理-4_  **(1)**\ ：如果在中断中进行延时，这将是非法的，LiteOS会返回错误代码，因为LiteOS不允许在中断中调用延时操作。
 
@@ -499,96 +362,52 @@ LiteOS支持挂起指定任务，被挂起的任务不会得到CPU使用权，�
     :name: 代码清单:任务管理-5
     :linenos:
 
+    LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskSuspend(UINT32 uwTaskID)
+    {
+        UINTPTR uvIntSave;
+        LOS_TASK_CB *pstTaskCB;
+        UINT16 usTempStatus;
+        UINT32 uwErrRet = OS_ERROR;
 
-1 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskSuspend(UINT32 uwTaskID)
+        CHECK_TASKID(uwTaskID);
+        pstTaskCB = OS_TCB_FROM_TID(uwTaskID);			(1)
+        uvIntSave = LOS_IntLock();
+        usTempStatus = pstTaskCB->usTaskStatus;
+        if (OS_TASK_STATUS_UNUSED & usTempStatus) {			(2)
+            uwErrRet = LOS_ERRNO_TSK_NOT_CREATED;
+            OS_GOTO_ERREND();
+        }
 
-2 {
+        if (OS_TASK_STATUS_SUSPEND & usTempStatus) {		(3)
+            uwErrRet = LOS_ERRNO_TSK_ALREADY_SUSPENDED;
+            OS_GOTO_ERREND();
+        }
 
-3 UINTPTR uvIntSave;
+        if((OS_TASK_STATUS_RUNNING & usTempStatus)&&(g_usLosTaskLock != 0)) {
+            uwErrRet = LOS_ERRNO_TSK_SUSPEND_LOCKED;		(4)
+            OS_GOTO_ERREND();
+        }
 
-4 LOS_TASK_CB \*pstTaskCB;
+        if (OS_TASK_STATUS_READY & usTempStatus) {			(5)
+            osPriqueueDequeue(&pstTaskCB->stPendList);		(6)
+            pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_READY);	(7)
+        }
 
-5 UINT16 usTempStatus;
+        pstTaskCB->usTaskStatus |= OS_TASK_STATUS_SUSPEND;		(8)
+        if (uwTaskID == g_stLosTask.pstRunTask->uwTaskID) {
+            (VOID)LOS_IntRestore(uvIntSave);
+            LOS_Schedule();					(9)
+            return LOS_OK;
+        }
 
-6 UINT32 uwErrRet = OS_ERROR;
+        (VOID)LOS_IntRestore(uvIntSave);
+        return LOS_OK;
 
-7
+    LOS_ERREND:
+        (VOID)LOS_IntRestore(uvIntSave);
+        return uwErrRet;
+    }
 
-8 CHECK_TASKID(uwTaskID);
-
-9 pstTaskCB = OS_TCB_FROM_TID(uwTaskID); **(1)**
-
-10 uvIntSave = LOS_IntLock();
-
-11 usTempStatus = pstTaskCB->usTaskStatus;
-
-12 if (OS_TASK_STATUS_UNUSED & usTempStatus) { **(2)**
-
-13 uwErrRet = LOS_ERRNO_TSK_NOT_CREATED;
-
-14 OS_GOTO_ERREND();
-
-15 }
-
-16
-
-17 if (OS_TASK_STATUS_SUSPEND & usTempStatus) { **(3)**
-
-18 uwErrRet = LOS_ERRNO_TSK_ALREADY_SUSPENDED;
-
-19 OS_GOTO_ERREND();
-
-20 }
-
-21
-
-22 if((OS_TASK_STATUS_RUNNING & usTempStatus)&&(g_usLosTaskLock != 0)) {
-
-23 uwErrRet = LOS_ERRNO_TSK_SUSPEND_LOCKED; **(4)**
-
-24 OS_GOTO_ERREND();
-
-25 }
-
-26
-
-27 if (OS_TASK_STATUS_READY & usTempStatus) { **(5)**
-
-28 osPriqueueDequeue(&pstTaskCB->stPendList); **(6)**
-
-29 pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_READY); **(7)**
-
-30 }
-
-31
-
-32 pstTaskCB->usTaskStatus \|= OS_TASK_STATUS_SUSPEND; **(8)**
-
-33 if (uwTaskID == g_stLosTask.pstRunTask->uwTaskID) {
-
-34 (VOID)LOS_IntRestore(uvIntSave);
-
-35 LOS_Schedule(); **(9)**
-
-36 return LOS_OK;
-
-37 }
-
-38
-
-39 (VOID)LOS_IntRestore(uvIntSave);
-
-40 return LOS_OK;
-
-41
-
-42 LOS_ERREND:
-
-43 (VOID)LOS_IntRestore(uvIntSave);
-
-44 return uwErrRet;
-
-45 }
 
 -   代码清单:任务管理-5_  **(1)**\ ：根据任务ID获取对应的任务控制块。
 
@@ -619,90 +438,49 @@ LiteOS支持挂起指定任务，被挂起的任务不会得到CPU使用权，�
     :name: 代码清单:任务管理-6
     :linenos:
 
+    LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskResume(UINT32 uwTaskID)
+    {
+        UINTPTR uvIntSave;
+        LOS_TASK_CB *pstTaskCB;
+        UINT16 usTempStatus;
+        UINT32 uwErrRet = OS_ERROR;
 
-1 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskResume(UINT32 uwTaskID)
+        if (uwTaskID > LOSCFG_BASE_CORE_TSK_LIMIT) {		(1)
+            return LOS_ERRNO_TSK_ID_INVALID;
+        }
 
-2 {
+        pstTaskCB = OS_TCB_FROM_TID(uwTaskID);			(2)
+        uvIntSave = LOS_IntLock();
+        usTempStatus = pstTaskCB->usTaskStatus;
 
-3 UINTPTR uvIntSave;
+        if (OS_TASK_STATUS_UNUSED & usTempStatus) {			(3)
+            uwErrRet = LOS_ERRNO_TSK_NOT_CREATED;
+            OS_GOTO_ERREND();
+        } else if (!(OS_TASK_STATUS_SUSPEND & usTempStatus)) {	(4)
+            uwErrRet = LOS_ERRNO_TSK_NOT_SUSPENDED;
+            OS_GOTO_ERREND();
+        }
 
-4 LOS_TASK_CB \*pstTaskCB;
+        pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_SUSPEND);	(5)
+        if (!(OS_CHECK_TASK_BLOCK & pstTaskCB->usTaskStatus) ) {
+            pstTaskCB->usTaskStatus |= OS_TASK_STATUS_READY;		(6)
+            osPriqueueEnqueue(&pstTaskCB->stPendList, pstTaskCB->usPriority);
+            if (g_bTaskScheduled) {				(7)
+                (VOID)LOS_IntRestore(uvIntSave);
+                LOS_Schedule();					(8)
+                return LOS_OK;
+            }
+            g_stLosTask.pstNewTask = LOS_DL_LIST_ENTRY(osPriqueueTop(),
+                            LOS_TASK_CB, stPendList);
+    }
+        (VOID)LOS_IntRestore(uvIntSave);
+        return LOS_OK;
 
-5 UINT16 usTempStatus;
+    LOS_ERREND:
+        (VOID)LOS_IntRestore(uvIntSave);
+        return uwErrRet;
+    }
 
-6 UINT32 uwErrRet = OS_ERROR;
-
-7
-
-8 if (uwTaskID > LOSCFG_BASE_CORE_TSK_LIMIT) { **(1)**
-
-9 return LOS_ERRNO_TSK_ID_INVALID;
-
-10 }
-
-11
-
-12 pstTaskCB = OS_TCB_FROM_TID(uwTaskID); **(2)**
-
-13 uvIntSave = LOS_IntLock();
-
-14 usTempStatus = pstTaskCB->usTaskStatus;
-
-15
-
-16 if (OS_TASK_STATUS_UNUSED & usTempStatus) { **(3)**
-
-17 uwErrRet = LOS_ERRNO_TSK_NOT_CREATED;
-
-18 OS_GOTO_ERREND();
-
-19 } else if (!(OS_TASK_STATUS_SUSPEND & usTempStatus)) { **(4)**
-
-20 uwErrRet = LOS_ERRNO_TSK_NOT_SUSPENDED;
-
-21 OS_GOTO_ERREND();
-
-22 }
-
-23
-
-24 pstTaskCB->usTaskStatus &= (~OS_TASK_STATUS_SUSPEND); **(5)**
-
-25 if (!(OS_CHECK_TASK_BLOCK & pstTaskCB->usTaskStatus) ) {
-
-26 pstTaskCB->usTaskStatus \|= OS_TASK_STATUS_READY; **(6)**
-
-27 osPriqueueEnqueue(&pstTaskCB->stPendList, pstTaskCB->usPriority);
-
-28 if (g_bTaskScheduled) { **(7)**
-
-29 (VOID)LOS_IntRestore(uvIntSave);
-
-30 LOS_Schedule(); **(8)**
-
-31 return LOS_OK;
-
-32 }
-
-33 g_stLosTask.pstNewTask = LOS_DL_LIST_ENTRY(osPriqueueTop(),
-
-34 LOS_TASK_CB, stPendList);
-
-35 }
-
-36 (VOID)LOS_IntRestore(uvIntSave);
-
-37 return LOS_OK;
-
-38
-
-39 LOS_ERREND:
-
-40 (VOID)LOS_IntRestore(uvIntSave);
-
-41 return uwErrRet;
-
-42 }
 
 -   代码清单:任务管理-6_  **(1)**\ ：判断任务ID是否有效，如果无效则返回错误代码。
 
@@ -734,165 +512,162 @@ LiteOS支持挂起指定任务，被挂起的任务不会得到CPU使用权，�
    :header-rows: 0
 
 
-   * - 序号 |
-     - 义              | 描述
-     - | 参考解决
-     - 案      |
+   * - 序号
+     - 定义
+     - 描述
+     - 参考解决方案
 
    * - 1
-     - LOS_ER RNO_TSK_NO_MEMORY
-     - 内存空间不足      | 分配更大
-     - 内存    |
+     - LOS_ERRNO_TSK_NO_MEMORY
+     - 内存空间不足
+     - 分配更大内存
 
    * - 2
-     - LOS_E RRNO_TSK_PTR_NULL
-     - 任务参数为空      | 检查任务
-     - 数      |
+     - LOS_ERRNO_TSK_PTR_NULL
+     - 任务参数为空
+     - 检查任务数
 
    * - 3
-     - LOS_ERRNO_TS K_STKSZ_NOT_ALIGN
-     - 任务栈未对齐      | 对齐任务
-     - |
+     - LOS_ERRNO_TSK_STKSZ_NOT_ALIGN
+     - 任务栈未对齐
+     - 对齐任务栈
 
    * - 4
-     - LOS_ERRN O_TSK_PRIOR_ERROR
-     - 不                | 正确的任务优先级  |
-     - 检查任务优先级    | |
+     - LOS_ERRNO_TSK_PRIOR_ERROR
+     - 不正确的任务优先级
+     - 检查任务优先级
 
    * - 5
      - LOS_ERR NO_TSK_ENTRY_NULL
-     - 任务入口函数为空  | 定义任务入口
-     - 数  |
+     - 任务入口函数为空定义任务入口
+     - 定义任务入口函数
 
    * - 6
      - LOS_ERR NO_TSK_NAME_EMPTY
-     - 任务名为空        | 设置任
-     - 名        |
+     - 任务名为空
+     - 设置任名
 
    * - 7
-     - LOS_ERRNO_TS K_STKSZ_TOO_SMALL
-     - 任务栈太小        | 扩大任
-     - 栈        |
+     - LOS_ERRNO_TSK_STKSZ_TOO_SMALL
+     - 任务栈太小
+     - 扩大任务栈
 
    * - 8
      - LOS_ERR NO_TSK_ID_INVALID
-     - 无效的任务ID      | 检查任
-     - ID        |
+     - 无效的任务ID
+     - 检查任务ID
 
    * - 9
-     - LOS_ERRNO_TSK_ ALREADY_SUSPENDED
-     - 任务已经被挂起    | 等待这个任
-     - |
-       再去  |
-       任务  |
+     - LOS_ERRNO_TSK_ALREADY_SUSPENDED
+     - 任务已经被挂起
+     - 等待这个任被恢复后，再尝试去挂起这个任务
 
    * - 10
-     - LOS_ERRNO_ TSK_NOT_SUSPENDED
-     - 任务未被挂起      | 挂起这个
-     - 务      |
+     - LOS_ERRNO_TSK_NOT_SUSPENDED
+     - 任务未被挂起
+     - 挂起这个任务
 
    * - 11
-     - LOS_ERRN O_TSK_NOT_CREATED
-     - 任务未被创建      | 创建这个
-     - 务      |
+     - LOS_ERRNO_TSK_NOT_CREATED
+     - 任务未被创建
+     - 创建这个任务
 
    * - 12
-     - LOS_ERRNO_ TSK_DELETE_LOCKED
-     - 删除任务时，      | 等待解锁 任务处于被锁状态  | 后再进行删除
-     - 务之    | 作  |
+     - LOS_ERRNO_TSK_DELETE_LOCKED
+     - 删除任务时，任务处于被锁状态
+     - 等待解锁任务之后再进行删除操作
 
    * - 13
-     - LOS_ERRN O_TSK_MSG_NONZERO
-     - 任务信息非零      | 暂
-     - |
+     - LOS_ERRNO_TSK_MSG_NONZERO
+     - 任务信息非零
+     - 暂不使用该错误代码
 
    * - 14
-     - LOS_ERRNO _TSK_DELAY_IN_INT
-     - 中断期            | 等 间，进行任务延时  | 后再进行延时
-     - 退出中断      | 作  |
+     - LOS_ERRNO_TSK_DELAY_IN_INT
+     - 中断期间，进行任务延时
+     - 等待退出中断后再进行延时操作
 
    * - 15
-     - LOS_ERRNO_ TSK_DELAY_IN_LOCK
-     - 任务被锁的        | 等待解 状态下，进行延时  | 后再进行延时
-     - 任务之    | 作  |
+     - LOS_ERRNO_TSK_DELAY_IN_LOCK
+     - 任务被锁的状态下，进行延时
+     - 等待解锁任务之后再进行延时操作
 
    * - 16
-     - LOS_ERRNO_TSK_Y IELD_INVALID_TASK
-     - 将被排入行        | 检查这 程的任务是无效的  |
-     - 任务      | |
+     - LOS_ERRNO_TSK_YIELD_INVALID_TASK
+     - 将被排入行程的任务是无效的
+     - 检查这个任务
+
 
    * - 17
-     - L OS_ERRNO_TSK_YIEL D_NOT_ENOUGH_TASK
-     - 没有或            | 增 者仅有一个可用任  | 务能进行行程安排  |
-     - 任务数        | | |
+     - LOS_ERRNO_TSK_YIELD_NOT_ENOUGH_TASK
+     - 没有或者仅有一个可用任务能进行行程安排
+     - 增加任务数
 
    * - 18
-     - LOS_ERRNO_TS K_TCB_UNAVAILABLE
-     - 没有空闲          | 增 的任务控制块可用  | 加任务控制块
-     - |
+     - LOS_ERRNO_TSK_TCB_UNAVAILABLE
+     - 没有空闲的任务控制块可用
+     - 增加任务控制块数量
 
    * - 19
-     - LOS_ERRNO_T SK_HOOK_NOT_MATCH
-     - 任务              | 的钩子函数不匹配  | 不使用该错误
-     - |
+     - LOS_ERRNO_TSK_HOOK_NOT_MATCH
+     - 任务的钩子函数不匹配
+     - 暂不使用该错误代码
 
    * - 20
-     - LOS_ERRNO _TSK_HOOK_IS_FULL
-     - 任务的钩子        | 暂 函数数量超过界限  | 不使用该错误
-     - |
+     - LOS_ERRNO_TSK_HOOK_IS_FULL
+     - 任务的钩子函数数量超过界限
+     - 暂不使用该错误代码
 
    * - 21
-     - LOS_ERRNO _TSK_OPERATE_IDLE
-     - 这是个IDLE任务    | 检查任
-     - ID，不要  | 试图操作IDLE任务  |
+     - LOS_ERRNO_TSK_OPERATE_IDLE
+     - 这是个IDLE任务
+     - 检查任务ID，不要试图操作IDLE任务
 
    * - 22
-     - LOS_ERRNO_T SK_SUSPEND_LOCKED
-     - 将被挂起的        | 等待任 任务处于被锁状态  | 后再尝试挂起
-     - 解锁      | 务  |
+     - LOS_ERRNO_TSK_SUSPEND_LOCKED
+     - 将被挂起的任务处于被锁状态
+     - 等待任务解锁后再尝试挂起任务
 
    * - 23
-     - LOS_ERRNO_TSK_ FREE_STACK_FAILED
-     - 任务栈free失败    | 该
-     - |
+     - LOS_ERRNO_TSK_FREE_STACK_FAILED
+     - 任务栈free失败
+     - 该错误代码暂不使用
 
    * - 24
-     - LOS_ERRNO_TSK_ STKAREA_TOO_SMALL
-     - 任务栈区域太小    | 该
-     - |
-       |
+     - LOS_ERRNO_TSK_STKAREA_TOO_SMALL
+     - 任务栈区域太小
+     - 该错误代码暂不使用
 
    * - 25
-     - LOS_ERRNO_ TSK_ACTIVE_FAILED
-     - 任务触发失败      | 创建一个
-     - DLE任    | 务后执行任务转换  |
+     - LOS_ERRNO_TSK_ACTIVE_FAILED
+     - 任务触发失败
+     - 创建一个IDLE任务后执行任务转换
 
    * - 26
-     - LOS_ERRNO_TS K_CONFIG_TOO_MANY
-     - 过多的任务配置项  | 该
-     - |
-        |
+     - LOS_ERRNO_TSK_CONFIG_TOO_MANY
+     - 过多的任务配置项
+     - 该错误代码暂不使用
 
    * - 27
-     - LOS_ERRNO_TS K_STKSZ_TOO_LARGE
-     - 任                | 务栈大小设置过大  |
-     - 减小任务栈大小    | |
+     - LOS_ERRNO_TSK_STKSZ_TOO_LARGE
+     - 任务栈大小设置过大
+     - 减小任务栈大小
 
    * - 28
-     - LOS_E RRNO_TSK_SUSPEND_ SWTMR_NOT_ALLOWED
-     - 不允许挂          | 检查 起软件定时器任务  | 不要试图挂
-     - 务ID,       | | 起软件定时器任务  |
+     - LOS_ERRNO_TSK_SUSPEND_SWTMR_NOT_ALLOWED
+     - 不允许挂起软件定时器任务
+     - 检查任务ID, 不要试图挂起软件定时器任务
 
 
 常用任务函数的使用方法
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 任务创建函数LOS_TaskCreate()
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 LOS_TaskCreate()函数原型如 代码清单:任务管理-7_ 所示。创建任务函数是创建每个独立任务的时候是必须使用的，在使用函数的时候，需要
-提前定义任务ID变量，并且要自定义实现任务创建的pstInitParam，如 代码清单:任务管理-8_ 加粗部分所示。如果任务创建成功，则返回LOS_OK，
+提前定义任务ID变量，并且要自定义实现任务创建的pstInitParam，如 代码清单:任务管理-8_ 高亮部分所示。如果任务创建成功，则返回LOS_OK，
 否则返回对应的错误代码。
 
 .. code-block:: c
@@ -905,28 +680,20 @@ LOS_TaskCreate()函数原型如 代码清单:任务管理-7_ 所示。创建任�
 
 .. code-block:: c
     :caption:  代码清单:任务管理-8自定义实现任务的相关配置
-    :emphasize-lines: 
+    :emphasize-lines: 2-9
     :name: 代码清单:任务管理-8
     :linenos:
 
+    UINT32 Test1_Task_Handle;		/* 定义任务ID变量 */
+    TSK_INIT_PARAM_S task_init_param;	/* 自定义任务配置的相关参数 */
 
-1 UINT32 Test1_Task_Handle; /\* 定义任务ID变量 \*/
+    task_init_param.usTaskPrio = 5;	/* 优先级，数值越小，优先级越高 */
+    task_init_param.pcName = "Test1_Task";	/* 任务名，字符串形式，方便调试 */
+    task_init_param.pfnTaskEntry = (TSK_ENTRY_FUNC)Test1_Task; /* 任务函数名 */
+    task_init_param.uwStackSize = 0x1000;	/* 栈大小，单位为字，即4个字节 */
 
-**2 TSK_INIT_PARAM_S task_init_param; /\* 自定义任务配置的相关参数 \*/**
+    uwRet = LOS_TaskCreate(&Test1_Task_Handle, &task_init_param);/* 创建任务 */
 
-**3**
-
-**4 task_init_param.usTaskPrio = 5; /\* 优先级，数值越小，优先级越高 \*/**
-
-**5 task_init_param.pcName = "Test1_Task"; /\* 任务名，字符串形式，方便调试 \*/**
-
-**6 task_init_param.pfnTaskEntry = (TSK_ENTRY_FUNC)Test1_Task; /\* 任务函数名 \*/**
-
-**7 task_init_param.uwStackSize = 0x1000; /\* 栈大小，单位为字，即4个字节 \*/**
-
-8
-
-**9 uwRet = LOS_TaskCreate(&Test1_Task_Handle, &task_init_param);/\* 创建任务 \*/**
 
 自定义任务配置的TSK_INIT_PARAM_S结构体在los_task.h中，其内部的配置参数具体作用如 代码清单:任务管理-9_ 所示，读者可以根
 据自己的任务需要来配置，重要的任务优先级可以设置高一点，任务栈可以设置大一点，防止溢出导致系统崩溃，若指定的任
@@ -934,26 +701,18 @@ LOS_TaskCreate()函数原型如 代码清单:任务管理-7_ 所示。创建任�
 
 .. code-block:: c
     :caption:  代码清单:任务管理-9 TSK_INIT_PARAM_S结构体
-    :emphasize-lines: 
     :name: 代码清单:任务管理-9
     :linenos:
 
+    typedef struct tagTskInitParam {
+        TSK_ENTRY_FUNC       pfnTaskEntry;       /**< 任务的入口函数    */
+        UINT16               usTaskPrio;         /**< 任务优先级       */
+        UINT32               uwArg;              /**< 任务参数（未使用） */
+        UINT32               uwStackSize;        /**< 任务栈大小    */
+        CHAR                 *pcName;            /**< 任务名字      */
+        UINT32               uwResved;           /**< LiteOS保留未使用    */
+    } TSK_INIT_PARAM_S;
 
-1 typedef struct tagTskInitParam {
-
-2 TSK_ENTRY_FUNC pfnTaskEntry; /**< 任务的入口函数 \*/
-
-3 UINT16 usTaskPrio; /**< 任务优先级 \*/
-
-4 UINT32 uwArg; /**< 任务参数（未使用） \*/
-
-5 UINT32 uwStackSize; /**< 任务栈大小 \*/
-
-6 CHAR \*pcName; /**< 任务名字 \*/
-
-7 UINT32 uwResved; /**< LiteOS保留未使用 \*/
-
-8 } TSK_INIT_PARAM_S;
 
 
 任务删除函数LOS_TaskDelete()
@@ -967,47 +726,31 @@ LOS_TaskCreate()函数原型如 代码清单:任务管理-7_ 所示。创建任�
     :name: 代码清单:任务管理-10
     :linenos:
 
+    /**********************************************************************
+    功能：LOS_TaskDelete
+    描述：删除任务
+    输入：uwTaskID ---任务ID
+    输出：无
+    返回：LOS_OK成功或失败时出现错误代码
+    **********************************************************************/
+    LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskDelete(UINT32 uwTaskID)
 
-1 /\*
-
-2 功能：LOS_TaskDelete
-
-3 描述：删除任务
-
-4 输入：uwTaskID ---任务ID
-
-5 输出：无
-
-6 返回：LOS_OK成功或失败时出现错误代码
-
-7 \/
-
-8 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskDelete(UINT32 uwTaskID)
-
-任务删除函数的实例：如 代码清单:任务管理-11_ 加粗部分所示，如果任务删除成功，则返回LOS_OK，否则返回其他错误代码。
+任务删除函数的实例：如 代码清单:任务管理-11_ 高亮部分所示，如果任务删除成功，则返回LOS_OK，否则返回其他错误代码。
 
 .. code-block:: c
     :caption:  代码清单:任务管理-11 任务删除函数的用法
-    :emphasize-lines: 
+    :emphasize-lines: 3
     :name: 代码清单:任务管理-11
     :linenos:
 
+    UINT32 uwRet = LOS_OK;/* 定义一个任务的返回类型，初始化为LOS_OK */
 
-1 UINT32 uwRet = LOS_OK;/\* 定义一个任务的返回类型，初始化为LOS_OK \*/
+    uwRet = LOS_TaskDelete(Test_Task_Handle)
+    if (uwRet != LOS_OK)
+    {
+        printf("任务删除失败\n");
+    }
 
-2
-
-**3 uwRet = LOS_TaskDelete(Test_Task_Handle)**
-
-4 if (uwRet != LOS_OK)
-
-5 {
-
-6 printf("任务删除失败\n");
-
-7 }
-
-.. _任务延时函数los_taskdelay-1:
 
 任务延时函数LOS_TaskDelay()
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1021,33 +764,27 @@ LOS_TaskCreate()函数原型如 代码清单:任务管理-7_ 所示。创建任�
 
     extern UINT32 LOS_TaskDelay(UINT32 uwTick);
 
+
 任务延时函数有几点需要注意的地方，第一点：延时函数不允许在中断中使用；第二点：延时函数不允许在任务调度被锁定的时候使用；
 第三点：如果传入0并且未锁定任务调度，则执行具有当前任务相同优先级的任务队列中的下一个任务，如果没有当前任务优先级的就绪
 任务可用，则不会发生任务调度，并继续执行当前任务；第四点：不允许在系统初始化之前使用该函数；第五点：延时函数也是有返回
-值的，如果使用时候发生错误，可以根据返回的错误代码来进行调整；第六点：这种延时并不精确。任务延时函数的使用方法如 代码清单:任务管理-13_ 加粗部分所示。
+值的，如果使用时候发生错误，可以根据返回的错误代码来进行调整；第六点：这种延时并不精确。任务延时函数的使用方法如 代码清单:任务管理-13_ 高亮部分所示。
 
 .. code-block:: c
     :caption:  代码清单:任务管理-13延时函数的使用方法
-    :emphasize-lines: 
+    :emphasize-lines: 6
     :name: 代码清单:任务管理-13
     :linenos:
 
+    static void Test1_Task(void)
+    {
+        /* 每个任务都是无限循环 */
+        while (1) {
+            LED2_TOGGLE;  //LED2翻转
+            LOS_TaskDelay(1000);   //1000个Tick 延时
+        }
+    }
 
-1 static void Test1_Task(void)
-
-2 {
-
-3 /\* 每个任务都是无限循环 \*/
-
-4 while (1) {
-
-5 LED2_TOGGLE; //LED2翻转
-
-**6 LOS_TaskDelay(1000); //1000个Tick 延时**
-
-7 }
-
-8 }
 
 任务挂起与恢复函数
 ^^^^^^^^^^^^^^^^^^^
@@ -1064,91 +801,57 @@ LOS_TaskCreate()函数原型如 代码清单:任务管理-7_ 所示。创建任�
     :name: 代码清单:任务管理-14
     :linenos:
 
+    /*
+    * 暂停任务。
+    * 此API用于挂起指定的任务，该任务将从就绪列表中删除。
+    * 无法暂停正在运行和锁定的任务。
+    * 无法暂停idle task和swtmr任务。
+    */
+    extern UINT32 LOS_TaskSuspend(UINT32 uwTaskID);
 
-1 /\*
+    /*
+    * 恢复任务。
+    * 此API用于恢复暂停的任务。
+    * 如果任务被延迟或阻止，请恢复任务，而不将其添加到准备任务的队列中。
+    * 如果在系统初始化后任务的优先级高于当前任务并且任务计划未锁定，则计划运行。
+    */
+    extern UINT32 LOS_TaskResume(UINT32 uwTaskID);
 
-2 \* 暂停任务。
-
-3  \* 此API用于挂起指定的任务，该任务将从就绪列表中删除。
-
-4  \* 无法暂停正在运行和锁定的任务。
-
-5  \* 无法暂停idle task和swtmr任务。
-
-6 \*/
-
-7 extern UINT32 LOS_TaskSuspend(UINT32 uwTaskID);
-
-8
-
-9 /\*
-
-10 \* 恢复任务。
-
-11  \* 此API用于恢复暂停的任务。
-
-12  \* 如果任务被延迟或阻止，请恢复任务，而不将其添加到准备任务的队列中。
-
-13  \* 如果在系统初始化后任务的优先级高于当前任务并且任务计划未锁定，则计划运行。
-
-14 \*/
-
-15 extern UINT32 LOS_TaskResume(UINT32 uwTaskID);
 
 这两个任务函数的使用方法是根据传入的任务ID来挂起/恢复对应的任务，任务ID是每个任务的唯一识标，本书提供的例程将通过按键
-来挂起与恢复LED任务，如 代码清单:任务管理-15_ 加粗部分所示。
+来挂起与恢复LED任务，如 代码清单:任务管理-15_ 高亮部分所示。
 
 .. code-block:: c
     :caption:  代码清单:任务管理-15 任务挂起与恢复的使用实例
-    :emphasize-lines: 
+    :emphasize-lines: 8,14
     :name: 代码清单:任务管理-15
     :linenos:
 
+    static void Key_Task(void)
+    {
+        UINT32 uwRet = LOS_OK;/* 定义一个任务的返回类型，初始化为成功的返回值 */
+        /* 任务都是一个无限循环，不能返回 */
+        while (1) {/* KEY1 被按下 */
+            if ( Key_Scan(KEY1_GPIO_PORT,KEY1_GPIO_PIN) == KEY_ON ) {
+                printf("挂起LED1任务！\n");
+                uwRet = LOS_TaskSuspend(LED_Task_Handle);/* 挂起LED任务 */
+                if (LOS_OK == uwRet) {
+                    printf("挂起LED1任务成功！\n");
+                }/* KEY2 被按下 */
+            } else if ( Key_Scan(KEY2_GPIO_PORT,KEY2_GPIO_PIN) == KEY_ON ) {
+                printf("恢复LED1任务!\n");
+                uwRet = LOS_TaskResume(LED_Task_Handle); /* 恢复LED任务 */
+                if (LOS_OK == uwRet) {
+                    printf("恢复LED1任务成功！\n");
+                }
+            }
+            LOS_TaskDelay(20);                  /* 20Ticks扫描一次 */
+        }
+    }
 
-1 static void Key_Task(void)
-
-2 {
-
-3 UINT32 uwRet = LOS_OK;/\* 定义一个任务的返回类型，初始化为成功的返回值 \*/
-
-4 /\* 任务都是一个无限循环，不能返回 \*/
-
-5 while (1) {/\* KEY1 被按下 \*/
-
-6 if ( Key_Scan(KEY1_GPIO_PORT,KEY1_GPIO_PIN) == KEY_ON ) {
-
-7 printf("挂起LED1任务！\n");
-
-**8 uwRet = LOS_TaskSuspend(LED_Task_Handle);/\* 挂起LED任务 \*/**
-
-9 if (LOS_OK == uwRet) {
-
-10 printf("挂起LED1任务成功！\n");
-
-11 }/\* KEY2 被按下 \*/
-
-12 } else if ( Key_Scan(KEY2_GPIO_PORT,KEY2_GPIO_PIN) == KEY_ON ) {
-
-13 printf("恢复LED1任务!\n");
-
-**14 uwRet = LOS_TaskResume(LED_Task_Handle); /\* 恢复LED任务 \*/**
-
-15 if (LOS_OK == uwRet) {
-
-16 printf("恢复LED1任务成功！\n");
-
-17 }
-
-18 }
-
-19 LOS_TaskDelay(20); /\* 20Ticks扫描一次 \*/
-
-20 }
-
-21 }
 
 任务的设计要点
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 作为一个嵌入式开发人员，要对自己设计的嵌入式系统要了如指掌，如任务的优先级信息、任务与中断的处理、任务的运行时间、逻
 辑、状态等，才能设计出好的系统，因此在设计的时候需要根据需求制定框架，并且应该考虑以下几点因素：任务运行的上下文环境（
@@ -1196,472 +899,244 @@ LOSCFG_KERNEL_RUNSTOP选择自己需要的特殊功能，如低功耗模式，�
 
 任务管理实验是使用任务常用的函数进行一次实验，本书将在野火STM32开发板上进行该试验，实验将创建两个任务，一个是LED任务，另一个
 是按键任务，LED任务的功能是显示任务运行的状态，而按键任务则是通过检测按键的按下情况来将LED任务的挂起/恢复，实验的源码如
- 代码清单:任务管理-16_ 加粗部分所示。
+代码清单:任务管理-16_ 高亮部分所示。
 
 .. code-block:: c
     :caption:  代码清单:任务管理-16 任务管理实验源码
-    :emphasize-lines: 
+    :emphasize-lines: 32-33,158-166,173-198
     :name: 代码清单:任务管理-16
     :linenos:
 
+    /***************************************************************
+    * @file    main.c
+    * @author  fire
+    * @version V1.0
+    * @date    2018-xx-xx
+    * @brief   STM32全系列开发板-LiteOS！
+    **************************************************************
+    * @attention
+    *
+    * 实验平台:野火 F103-霸道 STM32 开发板
+    * 论坛    :http://www.firebbs.cn
+    * 淘宝    :http://firestm32.taobao.com
+    *
+    ***************************************************************
+    */
+    /* LiteOS 头文件 */
+    #include "los_sys.h"
+    #include "los_task.ph"
+    /* 板级外设头文件 */
+    #include "bsp_usart.h"
+    #include "bsp_led.h"
+    #include "bsp_key.h"
+
+    /********************************* 任务ID *****************************/
+    /*
+    * 任务ID是一个从0开始的数字，用于索引任务，当任务创建完成之后，它就具有了一个任务ID
+    * 以后要想操作这个任务都需要通过这个任务ID 
+    *
+    */
+
+    /* 定义任务ID变量 */
+    UINT32 LED_Task_Handle;
+    UINT32 Key_Task_Handle;
+
+    /* 函数声明 */
+    static UINT32 AppTaskCreate(void);
+    static UINT32 Creat_LED_Task(void);
+    static UINT32 Creat_Key_Task(void);
+
+    static void LED_Task(void);
+    static void Key_Task(void);
+    static void BSP_Init(void);
+
+
+    /***************************************************************
+    * @brief  主函数
+    * @param  无
+    * @retval 无
+    * @note   第一步：开发板硬件初始化
+            第二步：创建App应用任务
+            第三步：启动LiteOS，开始多任务调度，启动失败则输出错误信息
+    **************************************************************/
+    int main(void)
+    {
+    UINT32 uwRet = LOS_OK;  //定义一个任务创建的返回值，默认为创建成功
+
+    /* 板载相关初始化 */
+    BSP_Init();
+
+    printf("这是一个[野火]-STM32全系列开发板-LiteOS任务管理实验！\n\n");
+    printf("按下KEY1挂起任务，按下KEY2恢复任务\n");
+
+    /* LiteOS 内核初始化 */
+    uwRet = LOS_KernelInit();
+
+    if (uwRet != LOS_OK) {
+        printf("LiteOS 核心初始化失败！失败代码0x%X\n",uwRet);
+        return LOS_NOK;
+    }
+
+    uwRet = AppTaskCreate();
+    if (uwRet != LOS_OK) {
+        printf("AppTaskCreate创建任务失败！失败代码0x%X\n",uwRet);
+        return LOS_NOK;
+    }
+
+    /* 开启LiteOS任务调度 */
+    LOS_Start();
+
+    //正常情况下不会执行到这里
+    while (1);
+    }
+
+
+    /*********************************************************************
+    * @ 函数名  ： AppTaskCreate
+    * @ 功能说明： 任务创建，为了方便管理，所有的任务创建函数都可以放在这个函数里面
+    * @ 参数    ： 无
+    * @ 返回值  ： 无
+    *******************************************************************/
+    static UINT32 AppTaskCreate(void)
+    {
+    /* 定义一个返回类型变量，初始化为LOS_OK */
+    UINT32 uwRet = LOS_OK;
+
+    uwRet = Creat_LED_Task();
+    if (uwRet != LOS_OK) {
+        printf("LED_Task任务创建失败！失败代码0x%X\n",uwRet);
+        return uwRet;
+        }
+
+        uwRet = Creat_Key_Task();
+        if (uwRet != LOS_OK) {
+            printf("Key_Task任务创建失败！失败代码0x%X\n",uwRet);
+            return uwRet;
+        }
+        return LOS_OK;
+    }
+
+
+    /******************************************************************
+    * @ 函数名  ： Creat_LED_Task
+    * @ 功能说明： 创建LED_Task任务
+    * @ 参数    ：
+    * @ 返回值  ： 无
+    ******************************************************************/
+    static UINT32 Creat_LED_Task()
+    {
+        //定义一个创建任务的返回类型，初始化为创建成功的返回值
+        UINT32 uwRet = LOS_OK;
+
+        //定义一个用于创建任务的参数结构体
+        TSK_INIT_PARAM_S task_init_param;
+
+        task_init_param.usTaskPrio = 5;	/* 任务优先级，数值越小，优先级越高 */
+        task_init_param.pcName = "LED_Task";/* 任务名 */
+        task_init_param.pfnTaskEntry = (TSK_ENTRY_FUNC)LED_Task;
+        task_init_param.uwStackSize = 1024;		/* 栈大小 */
+
+        uwRet=LOS_TaskCreate(&LED_Task_Handle,&task_init_param);/*创建任务 */
+        return uwRet;
+    }
+    /*******************************************************************
+    * @ 函数名  ： Creat_Key_Task
+    * @ 功能说明： 创建Key_Task任务
+    * @ 参数    ：
+    * @ 返回值  ： 无
+    ******************************************************************/
+    static UINT32 Creat_Key_Task()
+    {
+        // 定义一个创建任务的返回类型，初始化为创建成功的返回值
+        UINT32 uwRet = LOS_OK;
+        TSK_INIT_PARAM_S task_init_param;
+
+        task_init_param.usTaskPrio = 4;	/* 任务优先级，数值越小，优先级越高 */
+        task_init_param.pcName = "Key_Task";	/* 任务名*/
+        task_init_param.pfnTaskEntry = (TSK_ENTRY_FUNC)Key_Task;
+        task_init_param.uwStackSize = 1024;	/* 栈大小 */
+
+        uwRet = LOS_TaskCreate(&Key_Task_Handle,&task_init_param);/*创建任务 */
+
+        return uwRet;
+    }
+
+    /******************************************************************
+    * @ 函数名  ： LED_Task
+    * @ 功能说明： LED_Task任务实现
+    * @ 参数    ： NULL
+    * @ 返回值  ： NULL
+    *****************************************************************/
+    static void LED_Task(void)
+    {
+        /* 任务都是一个无限循环，不能返回 */
+        while (1) {
+            LED2_TOGGLE;      //LED2翻转
+            printf("LED任务正在运行！\n");
+            LOS_TaskDelay(1000);
+        }
+    }
+    /******************************************************************
+    * @ 函数名  ： Key_Task
+    * @ 功能说明： Key_Task任务实现
+    * @ 参数    ： NULL
+    * @ 返回值  ： NULL
+    *****************************************************************/
+    static void Key_Task(void)
+    {
+        UINT32 uwRet = LOS_OK;
+
+        /* 任务都是一个无限循环，不能返回 */
+        while (1) {
+            /* K1 被按下 */
+            if ( Key_Scan(KEY1_GPIO_PORT,KEY1_GPIO_PIN) == KEY_ON ) {
+                printf("挂起LED任务！\n");
+                uwRet = LOS_TaskSuspend(LED_Task_Handle);/* 挂起LED1任务 */
+                if (LOS_OK == uwRet) {
+                    printf("挂起LED任务成功！\n");
+                }
+            }
+            /* K2 被按下 */
+            else if ( Key_Scan(KEY2_GPIO_PORT,KEY2_GPIO_PIN) == KEY_ON ) {
+                printf("恢复LED任务！\n");
+                uwRet = LOS_TaskResume(LED_Task_Handle); /* 恢复LED1任务 */
+                if (LOS_OK == uwRet) {
+                    printf("恢复LED任务成功！\n");
+                }
+
+            }
+            LOS_TaskDelay(20);   /* 20ms扫描一次 */
+        }
+    }
+
+
+    /*******************************************************************
+    * @ 函数名  ： BSP_Init
+    * @ 功能说明： 板级外设初始化，所有开发板上的初始化均可放在这个函数里面
+    * @ 参数    ：
+    * @ 返回值  ： 无
+    ******************************************************************/
+    static void BSP_Init(void)
+    {
+        /*
+        * STM32中断优先级分组为4，即4bit都用来表示抢占优先级，范围为：0~15
+        * 优先级分组只需要分组一次即可，以后如果有其他的任务需要用到中断，
+        * 都统一用这个优先级分组，千万不要再分组，切忌。
+        */
+        NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
+
+        /* LED 初始化 */
+        LED_GPIO_Config();
+
+        /* 串口初始化	*/
+        USART_Config();
+
+        /* 按键初始化 */
+        Key_GPIO_Config();
+    }
+
+    /********************END OF FILE**********************/
 
-1 /\*
-
-2 \* @file main.c
-
-3 \* @author fire
-
-4 \* @version V1.0
-
-5 \* @date 2018-xx-xx
-
-6 \* @brief STM32全系列开发板-LiteOS！
-
-7 \\*
-
-8 \* @attention
-
-9 \*
-
-10 \* 实验平台:野火 F103-霸道 STM32 开发板
-
-11 \* 论坛 :http://www.firebbs.cn
-
-12 \* 淘宝 :http://firestm32.taobao.com
-
-13 \*
-
-14 \\*
-
-15 \*/
-
-16 /\* LiteOS 头文件 \*/
-
-17 #include "los_sys.h"
-
-18 #include "los_task.ph"
-
-19 /\* 板级外设头文件 \*/
-
-20 #include "bsp_usart.h"
-
-21 #include "bsp_led.h"
-
-22 #include "bsp_key.h"
-
-23
-
-24 /\* 任务ID \/
-
-25 /\*
-
-26 \* 任务ID是一个从0开始的数字，用于索引任务，当任务创建完成之后，它就具有了一个任务ID
-
-27 \* 以后要想操作这个任务都需要通过这个任务ID
-
-28 \*
-
-29 \*/
-
-30
-
-31 /\* 定义任务ID变量 \*/
-
-**32 UINT32 LED_Task_Handle;**
-
-**33 UINT32 Key_Task_Handle;**
-
-34
-
-35 /\* 函数声明 \*/
-
-36 static UINT32 AppTaskCreate(void);
-
-37 static UINT32 Creat_LED_Task(void);
-
-38 static UINT32 Creat_Key_Task(void);
-
-39
-
-40 static void LED_Task(void);
-
-41 static void Key_Task(void);
-
-42 static void BSP_Init(void);
-
-43
-
-44
-
-45 /\*
-
-46 \* @brief 主函数
-
-47 \* @param 无
-
-48 \* @retval 无
-
-49 \* @note 第一步：开发板硬件初始化
-
-50 第二步：创建App应用任务
-
-51 第三步：启动LiteOS，开始多任务调度，启动失败则输出错误信息
-
-52 \/
-
-53 int main(void)
-
-54 {
-
-55 UINT32 uwRet = LOS_OK; //定义一个任务创建的返回值，默认为创建成功
-
-56
-
-57 /\* 板载相关初始化 \*/
-
-58 BSP_Init();
-
-59
-
-60 printf("这是一个[野火]-STM32全系列开发板-LiteOS任务管理实验！\n\n");
-
-61 printf("按下KEY1挂起任务，按下KEY2恢复任务\n");
-
-62
-
-63 /\* LiteOS 内核初始化 \*/
-
-64 uwRet = LOS_KernelInit();
-
-65
-
-66 if (uwRet != LOS_OK) {
-
-67 printf("LiteOS 核心初始化失败！失败代码0x%X\n",uwRet);
-
-68 return LOS_NOK;
-
-69 }
-
-70
-
-71 uwRet = AppTaskCreate();
-
-72 if (uwRet != LOS_OK) {
-
-73 printf("AppTaskCreate创建任务失败！失败代码0x%X\n",uwRet);
-
-74 return LOS_NOK;
-
-75 }
-
-76
-
-77 /\* 开启LiteOS任务调度 \*/
-
-78 LOS_Start();
-
-79
-
-80 //正常情况下不会执行到这里
-
-81 while (1);
-
-82 }
-
-83
-
-84
-
-85 /\*
-
-86 \* @ 函数名 ： AppTaskCreate
-
-87 \* @ 功能说明： 任务创建，为了方便管理，所有的任务创建函数都可以放在这个函数里面
-
-88 \* @ 参数 ： 无
-
-89 \* @ 返回值 ： 无
-
-90 \/
-
-91 static UINT32 AppTaskCreate(void)
-
-92 {
-
-93 /\* 定义一个返回类型变量，初始化为LOS_OK \*/
-
-94 UINT32 uwRet = LOS_OK;
-
-95
-
-96 uwRet = Creat_LED_Task();
-
-97 if (uwRet != LOS_OK) {
-
-98 printf("LED_Task任务创建失败！失败代码0x%X\n",uwRet);
-
-99 return uwRet;
-
-100 }
-
-101
-
-102 uwRet = Creat_Key_Task();
-
-103 if (uwRet != LOS_OK) {
-
-104 printf("Key_Task任务创建失败！失败代码0x%X\n",uwRet);
-
-105 return uwRet;
-
-106 }
-
-107 return LOS_OK;
-
-108 }
-
-109
-
-110
-
-111 /\*
-
-112 \* @ 函数名 ： Creat_LED_Task
-
-113 \* @ 功能说明： 创建LED_Task任务
-
-114 \* @ 参数 ：
-
-115 \* @ 返回值 ： 无
-
-116 \/
-
-117 static UINT32 Creat_LED_Task()
-
-118 {
-
-119 //定义一个创建任务的返回类型，初始化为创建成功的返回值
-
-120 UINT32 uwRet = LOS_OK;
-
-121
-
-122 //定义一个用于创建任务的参数结构体
-
-123 TSK_INIT_PARAM_S task_init_param;
-
-124
-
-125 task_init_param.usTaskPrio = 5; /\* 任务优先级，数值越小，优先级越高 \*/
-
-126 task_init_param.pcName = "LED_Task";/\* 任务名 \*/
-
-127 task_init_param.pfnTaskEntry = (TSK_ENTRY_FUNC)LED_Task;
-
-128 task_init_param.uwStackSize = 1024; /\* 栈大小 \*/
-
-129
-
-130 uwRet=LOS_TaskCreate(&LED_Task_Handle,&task_init_param);/*创建任务 \*/
-
-131 return uwRet;
-
-132 }
-
-133 /\*
-
-134 \* @ 函数名 ： Creat_Key_Task
-
-135 \* @ 功能说明： 创建Key_Task任务
-
-136 \* @ 参数 ：
-
-137 \* @ 返回值 ： 无
-
-138 \/
-
-139 static UINT32 Creat_Key_Task()
-
-140 {
-
-141 // 定义一个创建任务的返回类型，初始化为创建成功的返回值
-
-142 UINT32 uwRet = LOS_OK;
-
-143 TSK_INIT_PARAM_S task_init_param;
-
-144
-
-145 task_init_param.usTaskPrio = 4; /\* 任务优先级，数值越小，优先级越高 \*/
-
-146 task_init_param.pcName = "Key_Task"; /\* 任务名*/
-
-147 task_init_param.pfnTaskEntry = (TSK_ENTRY_FUNC)Key_Task;
-
-148 task_init_param.uwStackSize = 1024; /\* 栈大小 \*/
-
-149
-
-150 uwRet = LOS_TaskCreate(&Key_Task_Handle,&task_init_param);/*创建任务 \*/
-
-151
-
-152 return uwRet;
-
-153 }
-
-154
-
-155 /\*
-
-156 \* @ 函数名 ： LED_Task
-
-157 \* @ 功能说明： LED_Task任务实现
-
-158 \* @ 参数 ： NULL
-
-159 \* @ 返回值 ： NULL
-
-160 \/
-
-**161 static void LED_Task(void)**
-
-**162 {**
-
-**163 /\* 任务都是一个无限循环，不能返回 \*/**
-
-**164 while (1) {**
-
-**165 LED2_TOGGLE; //LED2翻转**
-
-**166 printf("LED任务正在运行！\n");**
-
-**167 LOS_TaskDelay(1000);**
-
-**168 }**
-
-**169 }**
-
-170 /\*
-
-171 \* @ 函数名 ： Key_Task
-
-172 \* @ 功能说明： Key_Task任务实现
-
-173 \* @ 参数 ： NULL
-
-174 \* @ 返回值 ： NULL
-
-175 \/
-
-**176 static void Key_Task(void)**
-
-**177 {**
-
-**178 UINT32 uwRet = LOS_OK;**
-
-**179**
-
-**180 /\* 任务都是一个无限循环，不能返回 \*/**
-
-**181 while (1) {**
-
-**182 /\* K1 被按下 \*/**
-
-**183 if ( Key_Scan(KEY1_GPIO_PORT,KEY1_GPIO_PIN) == KEY_ON ) {**
-
-**184 printf("挂起LED任务！\n");**
-
-**185 uwRet = LOS_TaskSuspend(LED_Task_Handle);/\* 挂起LED1任务 \*/**
-
-**186 if (LOS_OK == uwRet) {**
-
-**187 printf("挂起LED任务成功！\n");**
-
-**188 }**
-
-**189 }**
-
-**190 /\* K2 被按下 \*/**
-
-**191 else if ( Key_Scan(KEY2_GPIO_PORT,KEY2_GPIO_PIN) == KEY_ON ) {**
-
-**192 printf("恢复LED任务！\n");**
-
-**193 uwRet = LOS_TaskResume(LED_Task_Handle); /\* 恢复LED1任务 \*/**
-
-**194 if (LOS_OK == uwRet) {**
-
-**195 printf("恢复LED任务成功！\n");**
-
-**196 }**
-
-**197**
-
-**198 }**
-
-**199 LOS_TaskDelay(20); /\* 20ms扫描一次 \*/**
-
-**200 }**
-
-**201 }**
-
-202
-
-203
-
-204 /\*
-
-205 \* @ 函数名 ： BSP_Init
-
-206 \* @ 功能说明： 板级外设初始化，所有开发板上的初始化均可放在这个函数里面
-
-207 \* @ 参数 ：
-
-208 \* @ 返回值 ： 无
-
-209 \/
-
-210 static void BSP_Init(void)
-
-211 {
-
-212 /\*
-
-213 \* STM32中断优先级分组为4，即4bit都用来表示抢占优先级，范围为：0~15
-
-214 \* 优先级分组只需要分组一次即可，以后如果有其他的任务需要用到中断，
-
-215 \* 都统一用这个优先级分组，千万不要再分组，切忌。
-
-216 \*/
-
-217 NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
-
-218
-
-219 /\* LED 初始化 \*/
-
-220 LED_GPIO_Config();
-
-221
-
-222 /\* 串口初始化 \*/
-
-223 USART_Config();
-
-224
-
-225 /\* 按键初始化 \*/
-
-226 Key_GPIO_Config();
-
-227 }
-
-228
-
-229 /END OF FILE/
 
 实验现象
 ~~~~~~~~
