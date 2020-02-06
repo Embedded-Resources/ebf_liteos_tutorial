@@ -921,7 +921,7 @@ target_config.h头文件的配置是LiteOS对外开放的配置，而los_config.
 los_config.h头文件，所以在los_config.h中默认已经配置好了这些头文件，以保证LiteOS能正常运行，即使是在target_config.h中配置错
 误了，target_config.h也是能正常运行的，这是一道保险机制，因此只修改target_config.h这个文件即可。
 
-target_config.h头文件的内容修改的不多，具体是：修改与对应开发板的头文件 ，如果是使用野火STM32F1的开发板，则包含F1的头文件
+target_config.h头文件的内容修改的不多，具体是：修改与对应开发板的头文件，如果是使用野火STM32F1的开发板，则包含F1的头文件
 #include "stm32f10x.h"，同理是使用了其他系列的开发板，则包含与开发板对应的头文件即可。还有需要修改系统的时钟OS_SYS_CLOCK
 与系统的时钟节拍LOSCFG_BASE_CORE_TICK_PER_SECOND，一般常用的是100~1000，根据自己需要选择。还有可以修改默认的任务栈大小，根
 据自己的需要修改即可。如 代码清单:移植-2_ 高亮部分所示。
