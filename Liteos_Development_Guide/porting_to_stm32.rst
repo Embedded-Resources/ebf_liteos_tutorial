@@ -201,7 +201,7 @@ targets文件夹简介
 ''''''''''''''''''''''''
 
 targets文件夹里面存放的是板级工程代码（含原厂芯片驱动），LiteOS已经为各半导体厂商的评估板写好程序，这些程序就存
-放在targets文件夹下。本书下载的LiteOS版本是master版本，只有几款开发板的程序，如图 targets文件夹内容_ 所示。 
+放在targets文件夹下。本书下载的LiteOS版本是master版本，只有几款开发板的程序，如图 targets文件夹内容_ 所示。
 targets文件夹中的每一个工程文件里都有具体的LiteOS系统初始化文件、配置文件等。例如，Cloud_STM32F429IGTx_FIRE工
 程文件夹中的OS_CONFIG是LiteOS功能的配置文件夹，里面的配置文件定义了很多宏，通过这些宏定义，用户可以根据需要裁剪
 LiteOS的功能。用户在使用LiteOS时，只需修改OS_CONFIG文件夹中的内容即可，其他文件并不需要改动。为了减小工程的大小,
@@ -409,7 +409,7 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     #endif /* __cplusplus */
     #endif /* __cplusplus */
 
-    *======================================================================
+    /*======================================================================
                     System clock module configuration		(2)
     =======================================================================*/
 
@@ -417,27 +417,27 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * System clock (unit: HZ)
     */
-    #define OS_SYS_CLOCK           	   (SystemCoreClock)	(2)-①
+    #define OS_SYS_CLOCK           	   (SystemCoreClock)//	(2)-①
 
     /**
     * @ingroup los_config
     * Number of Ticks in one second
     */
-    #define LOSCFG_BASE_CORE_TICK_PER_SECOND            (1000UL)	(2)-②
+    #define LOSCFG_BASE_CORE_TICK_PER_SECOND            (1000UL)//	(2)-②
 
     /**
     * @ingroup los_config
     * External configuration item for timer tailoring
     */
-    #define LOSCFG_BASE_CORE_TICK_HW_TIME                   NO	(2)-③
+    #define LOSCFG_BASE_CORE_TICK_HW_TIME                   NO//	(2)-③
 
     /**
     * @ingroup los_config
     * Configuration LiteOS kernel tickless
     */
-    #define LOSCFG_KERNEL_TICKLESS                          NO	(2)-④
+    #define LOSCFG_KERNEL_TICKLESS                          NO//	(2)-④
 
-    *========================================================================
+    /*========================================================================
                     Hardware interrupt module configuration		(3)
     =======================================================================*/
 
@@ -445,16 +445,16 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for hardware interrupt tailoring
     */
-    #define LOSCFG_PLATFORM_HWI                              NO	(3)-①
+    #define LOSCFG_PLATFORM_HWI                              NO//	(3)-①
 
     /**
     * @ingroup los_config
     * Maximum number of used hardware interrupts, including Tick timer interrupts.
     */
-    #define LOSCFG_PLATFORM_HWI_LIMIT                       96	(3)-②
+    #define LOSCFG_PLATFORM_HWI_LIMIT                       96//	(3)-②
 
 
-    *========================================================================
+    /*========================================================================
                     Task module configuration			(4)
     =======================================================================*/
 
@@ -462,73 +462,73 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Default task priority
     */
-    #define LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO             10		(4)-①
+    #define LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO             10//		(4)-①
 
     /**
     * @ingroup los_config
     * Maximum supported number of tasks except the idle task rather than the number of usable tasks
     */
-    #define LOSCFG_BASE_CORE_TSK_LIMIT                     15 	(4)-②             // max num task
+    #define LOSCFG_BASE_CORE_TSK_LIMIT                     15// 	(4)-②             // max num task
 
     /**
     * @ingroup los_config
     * Size of the idle task stack
     */
-    #define LOSCFG_BASE_CORE_TSK_IDLE_STACK_SIZE   (0x500U) 		(4)-③
+    #define LOSCFG_BASE_CORE_TSK_IDLE_STACK_SIZE   (0x500U)// 		(4)-③
 
     /**
     * @ingroup los_config
     * Default task stack size
     */
-    #define LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE        (0x2D0U)  (4)-③
+    #define LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE        (0x2D0U)//  (4)-③
 
     /**
     * @ingroup los_config
     * Minimum stack size.
     */
-    #define LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE            (0x130U)	(4)-③
+    #define LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE            (0x130U)//	(4)-③
 
     /**
     * @ingroup los_config
     * Configuration item for task Robin tailoring
     */
-    #define LOSCFG_BASE_CORE_TIMESLICE                     YES	(4)-④
+    #define LOSCFG_BASE_CORE_TIMESLICE                     YES//	(4)-④
 
     /**
     * @ingroup los_config
     * Longest execution time of tasks with the same priorities
     */
-    #define LOSCFG_BASE_CORE_TIMESLICE_TIMEOUT             10	(4)-⑤
+    #define LOSCFG_BASE_CORE_TIMESLICE_TIMEOUT             10//	(4)-⑤
 
     /**
     * @ingroup los_config
     * Configuration item for task (stack) monitoring module tailoring
     */
-    #define LOSCFG_BASE_CORE_TSK_MONITOR                  YES	(4)-⑥
+    #define LOSCFG_BASE_CORE_TSK_MONITOR                  YES//	(4)-⑥
 
     /**
     * @ingroup los_config
     * Configuration item for task perf task filter hook
     */
-    #define LOSCFG_BASE_CORE_EXC_TSK_SWITCH                YES	(4)-⑦
+    #define LOSCFG_BASE_CORE_EXC_TSK_SWITCH                YES//	(4)-⑦
 
     /**
     * @ingroup los_config
     * Configuration item for performance moniter unit
     */
-    #define OS_INCLUDE_PERF                                YES	(4)-⑧
+    #define OS_INCLUDE_PERF                                YES//	(4)-⑧
 
     /**
     * @ingroup los_config
     * Define a usable task priority.Highest task priority.
     */
-    #define LOS_TASK_PRIORITY_HIGHEST                      0	(4)-⑨
+    #define LOS_TASK_PRIORITY_HIGHEST                      0//	(4)-⑨
 
     /**
     * @ingroup los_config
     * Define a usable task priority.Lowest task priority.
     */
-    #define LOS_TASK_PRIORITY_LOWEST                       31	(4)-⑩
+    #define LOS_TASK_PRIORITY_LOWEST                       31//	(4)-⑩
 
 
     /*=====================================================================
@@ -539,13 +539,13 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for semaphore module tailoring
     */
-    #define LOSCFG_BASE_IPC_SEM                           YES	(5)-①
+    #define LOSCFG_BASE_IPC_SEM                           YES//	(5)-①
 
     /**
     * @ingroup los_config
     * Maximum supported number of semaphores
     */
-    #define LOSCFG_BASE_IPC_SEM_LIMIT                     20 	(2)-②
+    #define LOSCFG_BASE_IPC_SEM_LIMIT                     20// 	(2)-②
     // the max sem-numb
 
 
@@ -557,13 +557,13 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for mutex module tailoring
     */
-    #define LOSCFG_BASE_IPC_MUX                           YES	(6)-①
+    #define LOSCFG_BASE_IPC_MUX                           YES//	(6)-①
 
     /**
     * @ingroup los_config
     * Maximum supported number of mutexes
     */
-    #define LOSCFG_BASE_IPC_MUX_LIMIT                     15	(6)-②
+    #define LOSCFG_BASE_IPC_MUX_LIMIT                     15//	(6)-②
     // the max mutex-num
 
 
@@ -575,13 +575,13 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for queue module tailoring
     */
-    #define LOSCFG_BASE_IPC_QUEUE                        YES	(7)-①
+    #define LOSCFG_BASE_IPC_QUEUE                        YES//	(7)-①
 
     /**
     * @ingroup los_config
     * Maximum supported number of queues rather than the number of usable queues
     */
-    #define LOSCFG_BASE_IPC_QUEUE_LIMIT                   10	(7)-②
+    #define LOSCFG_BASE_IPC_QUEUE_LIMIT                   10//	(7)-②
     //the max queue-numb
 
 
@@ -594,13 +594,13 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for software timer module tailoring
     */
-    #define LOSCFG_BASE_CORE_SWTMR                        YES	(8)-①
+    #define LOSCFG_BASE_CORE_SWTMR                        YES//	(8)-①
 
     #define LOSCFG_BASE_CORE_TSK_SWTMR_STACK_SIZE  LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE
 
-    #define LOSCFG_BASE_CORE_SWTMR_TASK                   YES	(8)-②
+    #define LOSCFG_BASE_CORE_SWTMR_TASK                   YES//	(8)-②
 
-    #define LOSCFG_BASE_CORE_SWTMR_ALIGN                  NO	(8)-③
+    #define LOSCFG_BASE_CORE_SWTMR_ALIGN                  NO//	(8)-③
     #if(LOSCFG_BASE_CORE_SWTMR == NO && LOSCFG_BASE_CORE_SWTMR_ALIGN == YES)
     #error "swtmr align first need support swmtr, should make LOSCFG_BASE_CORE_SWTMR = YES"
     #endif
@@ -609,14 +609,14 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Maximum supported number of software timers rather than the number of usable software timers
     */
-    #define LOSCFG_BASE_CORE_SWTMR_LIMIT              	 16      	(8)-④    // the max SWTMR numb
+    #define LOSCFG_BASE_CORE_SWTMR_LIMIT              	 16//      	(8)-④    // the max SWTMR numb
 
     /**
     * @ingroup los_config
     * Max number of software timers ID
     */
-    #define OS_SWTMR_MAX_TIMERID     				(8)-⑤
-    ((65535/LOSCFG_BASE_CORE_SWTMR_LIMIT) * LOSCFG_BASE_CORE_SWTMR_LIMIT)
+    #define OS_SWTMR_MAX_TIMERID  ((65535/LOSCFG_BASE_CORE_SWTMR_LIMIT) * LOSCFG_BASE_CORE_SWTMR_LIMIT)   		///(8)-⑤
+
 
     /**
     * @ingroup los_config
@@ -628,7 +628,7 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Minimum divisor of software timer multiple alignment
     */
-    #define LOS_COMMON_DIVISOR                          10		(8)-⑦
+    #define LOS_COMMON_DIVISOR                          10		//(8)-⑦
     #endif
 
 
@@ -637,14 +637,14 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     ======================================================================*/
 
     extern UINT8 *m_aucSysMem0;
-    extern UINT32 __LOS_HEAP_ADDR_START__;				(9)-①
+    extern UINT32 __LOS_HEAP_ADDR_START__;				//(9)-①
     extern UINT32 __LOS_HEAP_ADDR_END__;
 
     /**
     * @ingroup los_config
     * Starting address of the memory
     */
-    #define OS_SYS_MEM_ADDR      (VOID *)__LOS_HEAP_ADDR_START__	(9)-②
+    #define OS_SYS_MEM_ADDR      (VOID *)__LOS_HEAP_ADDR_START__	//(9)-②
 
     /**
     * @ingroup los_config
@@ -656,40 +656,40 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Memory size
     */
-    #define OS_SYS_MEM_SIZE  ((UINT32)(__LOS_HEAP_ADDR_END__ - __LOS_HEAP_ADDR_START__ +1)) 	(9)-③
+    #define OS_SYS_MEM_SIZE  ((UINT32)(__LOS_HEAP_ADDR_END__ - __LOS_HEAP_ADDR_START__ +1)) 	//(9)-③
 
 
     /**
     * @ingroup los_config
     * Configuration module tailoring of mem node integrity checking
     */
-    #define LOSCFG_BASE_MEM_NODE_INTEGRITY_CHECK          	YES	(9)-④
+    #define LOSCFG_BASE_MEM_NODE_INTEGRITY_CHECK          	YES	//(9)-④
 
     /**
     * @ingroup los_config
     * Configuration module tailoring of mem node size checking
     */
-    #define LOSCFG_BASE_MEM_NODE_SIZE_CHECK             	YES	(9)-⑤
+    #define LOSCFG_BASE_MEM_NODE_SIZE_CHECK             	YES	//(9)-⑤
 
-    #define LOSCFG_MEMORY_BESTFIT                          	YES	(9)-⑥
+    #define LOSCFG_MEMORY_BESTFIT                          	YES	//(9)-⑥
 
     /**
     * @ingroup los_config
     * Configuration module tailoring of more mempry pool checking
     */
-    #define LOSCFG_MEM_MUL_POOL                            	YES	(9)-⑦
+    #define LOSCFG_MEM_MUL_POOL                            	YES	//(9)-⑦
 
     /**
     * @ingroup los_config
     * Number of memory checking blocks
     */
-    #define OS_SYS_MEM_NUM                              	20	(9)-⑧
+    #define OS_SYS_MEM_NUM                              	20	//(9)-⑧
 
     /**
     * @ingroup los_config
     * Configuration module tailoring of slab memory
     */
-    #define LOSCFG_KERNEL_MEM_SLAB                     	YES	(9)-⑨
+    #define LOSCFG_KERNEL_MEM_SLAB                     	YES	//(9)-⑨
 
 
     /*======================================================================
@@ -700,7 +700,7 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for the monitoring of task communication
     */
-    #define LOSCFG_COMPAT_CMSIS_FW                      	YES	(10)-①
+    #define LOSCFG_COMPAT_CMSIS_FW                      	YES	//(10)-①
 
 
     /*======================================================================
@@ -711,13 +711,13 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration system wake-up info to open
     */
-    #define OS_SR_WAKEUP_INFO                             	YES	(11)-①
+    #define OS_SR_WAKEUP_INFO                             	YES	//(11)-①
 
     /**
     * @ingroup los_config
     * Configuration CMSIS_OS_VER
     */
-    #define CMSIS_OS_VER                               	2	(11)-②
+    #define CMSIS_OS_VER                               	2	//(11)-②
 
 
     /*=======================================================================
@@ -728,7 +728,7 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for exception tailoring
     */
-    #define LOSCFG_PLATFORM_EXC                           	NO	(12)-①
+    #define LOSCFG_PLATFORM_EXC                           	NO	//(12)-①
 
 
     /*======================================================================
@@ -739,7 +739,7 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for runstop module tailoring
     */
-    #define LOSCFG_KERNEL_RUNSTOP                        	NO	(13)-①
+    #define LOSCFG_KERNEL_RUNSTOP                        	NO	//(13)-①
 
 
     /*======================================================================
@@ -750,13 +750,13 @@ target_config.h是直接从LiteOS官方的工程文件夹中复制过来的，�
     * @ingroup los_config
     * Configuration item for track
     */
-    #define LOSCFG_BASE_MISC_TRACK                       	NO	(14)-①
+    #define LOSCFG_BASE_MISC_TRACK                       	NO	//(14)-①
 
     /**
     * @ingroup los_config
     * Max count of track items
     */
-    #define LOSCFG_BASE_MISC_TRACK_MAX_COUNT            	1024	(14)-②
+    #define LOSCFG_BASE_MISC_TRACK_MAX_COUNT            	1024	//(14)-②
 
 
     #ifdef __cplusplus
@@ -1343,32 +1343,31 @@ target_config.h文件内容讲解
     /*=====================================================================
                         Memory module configuration
     ====================================================================*/
-    #define BOARD_SRAM_START_ADDR     0x20000000			(1)
-    #define BOARD_SRAM_SIZE_KB        20				(2)
-    #define BOARD_SRAM_END_ADDR (BOARD_SRAM_START_ADDR + 1024 * BOARD_SRAM_SIZE_KB)
-                                (3)
+    #define BOARD_SRAM_START_ADDR     0x20000000			//(1)
+    #define BOARD_SRAM_SIZE_KB        20				//(2)
+    #define BOARD_SRAM_END_ADDR (BOARD_SRAM_START_ADDR + 1024 * BOARD_SRAM_SIZE_KB)  //(3)
     /**
     * Config the start address and size of the LiteOS's heap memory
     */
-    #if defined ( __CC_ARM )					(4)
+    #if defined ( __CC_ARM )					//(4)
 
     extern UINT32 Image$$RW_IRAM1$$ZI$$Limit;
-    #define LOS_HEAP_MEM_BEGIN    (&(Image$$RW_IRAM1$$ZI$$Limit)) 	(5)
-    #define LOS_HEAP_MEM_END      BOARD_SRAM_END_ADDR		(6)
+    #define LOS_HEAP_MEM_BEGIN    (&(Image$$RW_IRAM1$$ZI$$Limit)) 	//(5)
+    #define LOS_HEAP_MEM_END      BOARD_SRAM_END_ADDR		//(6)
 
-    #elif defined ( __ICCARM__ )					(7)
+    #elif defined ( __ICCARM__ )					//(7)
 
     #pragma segment="HEAP"
     #define LOS_HEAP_MEM_BEGIN    (__segment_end("HEAP"))
     #define LOS_HEAP_MEM_END      BOARD_SRAM_END_ADDR
 
-    #elif defined ( __GNUC__ )					(8)
+    #elif defined ( __GNUC__ )					//(8)
 
     extern UINT32 _ebss;
     extern UINT32 _Min_Stack_Size;
     extern UINT32 _Min_Heap_Size;
-    #define LOS_HEAP_MEM_BEGIN ((UINT32)(&_ebss) + (UINT32)(&_Min_Heap_Size))
-    #define LOS_HEAP_MEM_END ((UINT32)BOARD_SRAM_END_ADDR - (UINT32)(&_Min_Stack_Size))
+    #define LOS_HEAP_MEM_BEGIN  ((UINT32)(&_ebss) + (UINT32)(&_Min_Heap_Size))
+    #define LOS_HEAP_MEM_END  ((UINT32)BOARD_SRAM_END_ADDR - (UINT32)(&_Min_Stack_Size))
 
     #else
     #error "Unknown compiler"
@@ -1384,8 +1383,7 @@ target_config.h文件内容讲解
     * @ingroup los_config
     * Size of LiteOS heap memory
     */
-    #define OS_SYS_MEM_SIZE (UINT32)((UINT32)LOS_HEAP_MEM_END - (UINT32) LOS_HEAP_MEM_BEGIN)
-                                                                (9)
+    #define OS_SYS_MEM_SIZE   (UINT32)((UINT32)LOS_HEAP_MEM_END - (UINT32) LOS_HEAP_MEM_BEGIN) //(9)
 
     /**
     * @ingroup los_config
@@ -1488,7 +1486,7 @@ target_config.h的修改很简单，除了2.3.2 这一章节修改的内容以�
     ====================================================================*/
     #define BOARD_SRAM_START_ADDR     0x20000000
     #define BOARD_SRAM_SIZE_KB        20
-    #define BOARD_SRAM_END_ADDR (BOARD_SRAM_START_ADDR + 1024 * BOARD_SRAM_SIZE_KB)
+    #define BOARD_SRAM_END_ADDR  (BOARD_SRAM_START_ADDR + 1024 * BOARD_SRAM_SIZE_KB)
 
     /**
     * Config the start address and size of the LiteOS's heap memory
@@ -1587,12 +1585,12 @@ target_config.h的修改很简单，除了2.3.2 这一章节修改的内容以�
 
 
 
-.. code-block:: guess
+.. code-block::
     :caption: 代码清单:移植-5 los_startup_keil.s启动文件内容
     :name: 代码清单:移植-5
     :linenos:
 
-    LOS_Heap_Min_Size   EQU     0x400					 
+    LOS_Heap_Min_Size   EQU     0x400
 
                     AREA    LOS_HEAP, NOINIT, READWRITE, ALIGN=3	(1)
     __los_heap_base
@@ -1601,8 +1599,8 @@ target_config.h的修改很简单，除了2.3.2 这一章节修改的内容以�
 
                     AREA    LOS_HEAP_INFO, DATA, READONLY, ALIGN=2	(2)
                     IMPORT  |Image$$ARM_LIB_STACKHEAP$$ZI$$Base|	(3)
-                    EXPORT  __LOS_HEAP_ADDR_START__			(4)	
-                    EXPORT  __LOS_HEAP_ADDR_END__		
+                    EXPORT  __LOS_HEAP_ADDR_START__			(4)
+                    EXPORT  __LOS_HEAP_ADDR_END__
     __LOS_HEAP_ADDR_START__
                     DCD     __los_heap_base				(5)
     __LOS_HEAP_ADDR_END__
@@ -1641,7 +1639,7 @@ target_config.h的修改很简单，除了2.3.2 这一章节修改的内容以�
 -   代码清单:移植-5_  **(1)**\ ：开辟栈的大小为 0X400（ 1KB），名字为 LOS_HEAP， NOINIT 即不初始化，READWRITE
     表示可读可写，按 8（2\ :sup:`3`\ ）字节对齐。
 
--   代码清单:移植-5_  **(2)**\ ：开辟栈的大小为 0X400（ 1KB），名字为 LOS_HEAP_INFO， READWRITE只读数据段， 
+-   代码清单:移植-5_  **(2)**\ ：开辟栈的大小为 0X400（ 1KB），名字为 LOS_HEAP_INFO， READWRITE只读数据段，
     按4（ 2\ :sup:`2`\ ）字节对齐。
 
 -   代码清单:移植-5_  **(3)**\ ：声明|Image$$ARM_LIB_STACKHEAP$$ZI$$Base|来自外部文件，跟 C 语言中的 EXTERN 关键字类似。
@@ -1766,7 +1764,7 @@ Fire-F103-LiteOS.sct分散加载文件
 
 打开分散加载文件后，可以看到文件里面的源码，本章将会简单介绍一下分散加载文件的格式，如 代码清单:移植-7_ 所示。
 
-.. code-block:: guess
+.. code-block::
     :caption:  代码清单:移植-7Fire-F103-LiteOS.sct分散加载文件源码
     :name: 代码清单:移植-7
     :linenos:
@@ -1782,8 +1780,8 @@ Fire-F103-LiteOS.sct分散加载文件
             * (.data.vector)					(3)
         }
         RW_IRAM1 0x20000400 0x00004800  {    ; RW data
-            ;.ANY (+RW +ZI)					
-            * (.data, .bss)					
+            ;.ANY (+RW +ZI)
+            * (.data, .bss)
             * (LOS_HEAP)						(4)
         }
         ARM_LIB_STACKHEAP 0x20004C00 EMPTY 0x400  {    ;LiteOS MSP

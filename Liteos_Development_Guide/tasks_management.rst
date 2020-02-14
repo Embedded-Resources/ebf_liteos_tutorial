@@ -102,7 +102,7 @@ LiteOS系统中的每一个任务都有多种运行状态，它们之间的转�
     :caption: 代码清单:任务管理-1任务创建函数LOS_TaskCreate()源码
     :name: 代码清单:任务管理-1
     :linenos:
- 
+
     LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreate(UINT32 *puwTaskID,
                     TSK_INIT_PARAM_S *pstInitParam){
         UINT32 uwRet = LOS_OK;
@@ -161,7 +161,7 @@ LiteOS系统中的每一个任务都有多种运行状态，它们之间的转�
 -   代码清单:任务管理-1_  **(7)**\ ：如果满足了\ **(6)** 中的条件，则进行任务的调度，任务的调度是用汇编
     代码实现的，如 代码清单:任务管理-2_ 所示，然后返回任务创建成功。
 
-.. code-block:: guess
+.. code-block::
     :caption: 代码清单:任务管理-2 LiteOS任务调度的实现
     :name: 代码清单:任务管理-2
     :linenos:
@@ -933,7 +933,7 @@ LOSCFG_KERNEL_RUNSTOP选择自己需要的特殊功能，如低功耗模式，�
     /********************************* 任务ID *****************************/
     /*
     * 任务ID是一个从0开始的数字，用于索引任务，当任务创建完成之后，它就具有了一个任务ID
-    * 以后要想操作这个任务都需要通过这个任务ID 
+    * 以后要想操作这个任务都需要通过这个任务ID
     *
     */
 

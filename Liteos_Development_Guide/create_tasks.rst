@@ -97,15 +97,15 @@ SRAM空间有多少。
     :name: 代码清单:创建任务-3
     :linenos:
 
-    LITE_OS_SEC_TEXT VOID *LOS_MemAllocAlign(VOID *pPool, 
-                        UINT32 uwSize, 
+    LITE_OS_SEC_TEXT VOID *LOS_MemAllocAlign(VOID *pPool,
+                        UINT32 uwSize,
                             UINT32 uwBoundary){
         VOID *pRet = NULL;
         UINT32 uwUseSize;
         UINT32 uwGapSize;
         VOID *pAlignedPtr;
         do {
-        if ((NULL == pPool) || (0 == uwSize) || (0 == uwBoundary)	
+        if ((NULL == pPool) || (0 == uwSize) || (0 == uwBoundary)
                 || !IS_ALIGNED(uwBoundary, sizeof(VOID *))) {
                 break;						(1)
             }
@@ -122,7 +122,7 @@ SRAM空间有多少。
 
 
                 uwGapSize = (UINT32)pAlignedPtr - (UINT32)pRet;
-                OS_MEM_SET_ALIGN_FLAG(uwGapSize);			
+                OS_MEM_SET_ALIGN_FLAG(uwGapSize);
                 *((UINT32 *)((UINT32)pAlignedPtr - 4)) = uwGapSize;
 
                 pRet = pAlignedPtr;
@@ -275,13 +275,13 @@ LiteOS系统的核心部分初始化，在初始化完成后，读者可以根�
     ********************************************************************/
     static UINT32 Creat_Test1_Task()
     {
-        UINT32 uwRet = LOS_OK; //定义一个创建任务的返回类型，默认为创建成功的返回值 
+        UINT32 uwRet = LOS_OK; //定义一个创建任务的返回类型，默认为创建成功的返回值
         TSK_INIT_PARAM_S task_init_param; /*定义一个局部变量 */	(1)
 
         task_init_param.usTaskPrio = 5; /* 任务优先级，数值越小，优先级越高*/ (2)
-        task_init_param.pcName = "Test1_Task";/* 任务名称 */		(3)	
+        task_init_param.pcName = "Test1_Task";/* 任务名称 */		(3)
         task_init_param.pfnTaskEntry = (TSK_ENTRY_FUNC)Test1_Task;	 (4)
-        task_init_param.uwStackSize = 0x1000;	/* 任务栈大小 */	(5)	
+        task_init_param.uwStackSize = 0x1000;	/* 任务栈大小 */	(5)
 
         uwRet = LOS_TaskCreate(&Test1_Task_Handle, &task_init_param); (6)
         return uwRet;						(7)
@@ -715,7 +715,7 @@ main.c文件内容全貌
 
 
 下载验证
-^^^^
+^^^^^^^^^^^^
 
 将程序编译好，用DAP仿真器把程序下载到野火STM32开发板（具体型号根据读者使用的开发板而定，每个型号的开发板都
 配套有对应的配套例程），可以看到开发板上面的两个LED灯以不同的频率在闪烁，而且串口也输出对于的运行信息，说明
@@ -900,7 +900,7 @@ LiteOS的启动流程
 
     5. 调用__main 初始化用户栈，从而最终调用 main 函数去到 C 的世界
 
-.. code-block:: guess
+.. code-block::
     :caption:  代码清单:创建任务-12 Reset_Handler函数
     :name: 代码清单:创建任务-12
     :linenos:
@@ -1155,7 +1155,7 @@ LiteOS初始化
 
 -   代码清单:创建任务-16_ **(2)**\ ：LOS_StartToRun()函数采用汇编实现，其源码在los_dispatch_keil.S文件中，如 代码清单:创建任务-17_ 所示。
 
-.. code-block:: guess
+.. code-block::
     :caption:  代码清单:创建任务-17 LOS_StartToRun()源码
     :name: 代码清单:创建任务-17
     :linenos:
